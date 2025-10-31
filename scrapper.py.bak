@@ -638,7 +638,137 @@ def scrape_profile(driver, username):
                 for elem in post_elements:
                     text = elem.text.strip()
                     # Check if it's a number
-                    if re.match(r'^[\d,\.]+[KMB]?$', text, re.IGNORECASE):
+                    if re.match(r'^[\d,\.]+[KMB]?
+
+def save_results(results, filename):
+    if not results:
+        print("No results to save")
+        return
+    
+    df = pd.DataFrame(results)
+    df.to_csv(filename, index=False, encoding='utf-8-sig')
+    print(f"✓ Saved {len(df)} profiles to {filename}")
+
+# ---------- MAIN ----------
+
+def main():
+    driver = None
+    results = []
+    processed_usernames = []
+    
+    try:
+        checkpoint = load_checkpoint()
+        if checkpoint:
+            print(f"Found checkpoint from {time.ctime(checkpoint['timestamp'])}")
+            response = input("Resume from checkpoint? (y/n): ").lower()
+            if response == 'y':
+                usernames_to_scrape = checkpoint['usernames']
+                processed_usernames = checkpoint['processed']
+                print(f"Resuming: {len(processed_usernames)}/{len(usernames_to_scrape)} already processed")
+                
+                if os.path.exists(OUTPUT_CSV):
+                    existing_df = pd.read_csv(OUTPUT_CSV)
+                    results = existing_df.to_dict('records')
+                
+                driver = start_driver()
+                if not login_instagram(driver, INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD):
+                    return
+                
+                usernames_to_scrape = [u for u in usernames_to_scrape if u not in processed_usernames]
+                
+            else:
+                checkpoint = None
+        
+        if not checkpoint:
+            driver = start_driver()
+            
+            if not login_instagram(driver, INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD):
+                print("Exiting due to login failure")
+                return
+            
+            modal = open_following_modal(driver, TARGET_ACCOUNT)
+            if not modal:
+                print("Exiting: Could not open following modal")
+                return
+            
+            usernames_to_scrape = collect_usernames_from_modal(
+                driver, modal, max_count=MAX_FOLLOWEES_TO_COLLECT
+            )
+            
+            if not usernames_to_scrape:
+                print("No usernames collected")
+                return
+            
+            # Close modal
+            try:
+                driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+                                part, re.IGNORECASE):
+            except:
+                pass
+        
+        # Scrape profiles
+        total = len(usernames_to_scrape)
+        print(f"\n{'='*50}")
+        print(f"Starting to scrape {total} profiles...")
+        print(f"{'='*50}\n")
+        
+        for i, username in enumerate(usernames_to_scrape, 1):
+            print(f"[{i}/{total}] Scraping {username}...")
+            
+            try:
+                profile_data = scrape_profile(driver, username)
+                if profile_data:
+                    results.append(profile_data)
+                    processed_usernames.append(username)
+                
+                if i % SAVE_FREQUENCY == 0:
+                    save_results(results, OUTPUT_CSV)
+                    if not checkpoint:
+                        checkpoint = {'usernames': usernames_to_scrape}
+                    save_checkpoint(
+                        checkpoint['usernames'],
+                        processed_usernames
+                    )
+                
+                rand_sleep()
+                
+            except Exception as e:
+                print(f"  ✗ Exception for {username}: {e}")
+                continue
+        
+        save_results(results, OUTPUT_CSV)
+        
+        if os.path.exists(CHECKPOINT_FILE):
+            os.remove(CHECKPOINT_FILE)
+            print("✓ Checkpoint cleaned up")
+                        if re.match(r'^[\d,\.]+[KMB]?$',
+        print(f"\n{'='*50}")
+        print(f"COMPLETED! Scraped {len(results)} profiles")
+        print(f"Results saved to: {OUTPUT_CSV}")
+        print(f"{'='*50}")
+        
+    except KeyboardInterrupt:
+        print("\n\nInterrupted by user!")
+        save_results(results, OUTPUT_CSV)
+        if 'usernames_to_scrape' in locals():
+            if not checkpoint:
+                checkpoint = {'usernames': usernames_to_scrape}
+            save_checkpoint(checkpoint['usernames'], processed_usernames)
+        
+    except Exception as e:
+        print(f"\n\nFatal error: {e}")
+        import traceback
+        traceback.print_exc()
+        save_results(results, OUTPUT_CSV)
+        
+    finally:
+        if driver:
+            driver.quit()
+            print("Driver closed")
+
+if __name__ == "__main__":
+    main()
+, text, re.IGNORECASE):
                         data["posts"] = parse_stat_number(text)
                         print(f"    📊 Posts from first li: {data['posts']}")
                         break
@@ -661,7 +791,137 @@ def scrape_profile(driver, username):
                 if (name and 
                     name != username and 
                     len(name) > 0 and 
-                    not re.match(r'^[\d,\.]+[KMB]?$', name, re.IGNORECASE) and
+                    not re.match(r'^[\d,\.]+[KMB]?
+
+def save_results(results, filename):
+    if not results:
+        print("No results to save")
+        return
+    
+    df = pd.DataFrame(results)
+    df.to_csv(filename, index=False, encoding='utf-8-sig')
+    print(f"✓ Saved {len(df)} profiles to {filename}")
+
+# ---------- MAIN ----------
+
+def main():
+    driver = None
+    results = []
+    processed_usernames = []
+    
+    try:
+        checkpoint = load_checkpoint()
+        if checkpoint:
+            print(f"Found checkpoint from {time.ctime(checkpoint['timestamp'])}")
+            response = input("Resume from checkpoint? (y/n): ").lower()
+            if response == 'y':
+                usernames_to_scrape = checkpoint['usernames']
+                processed_usernames = checkpoint['processed']
+                print(f"Resuming: {len(processed_usernames)}/{len(usernames_to_scrape)} already processed")
+                
+                if os.path.exists(OUTPUT_CSV):
+                    existing_df = pd.read_csv(OUTPUT_CSV)
+                    results = existing_df.to_dict('records')
+                
+                driver = start_driver()
+                if not login_instagram(driver, INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD):
+                    return
+                
+                usernames_to_scrape = [u for u in usernames_to_scrape if u not in processed_usernames]
+                
+            else:
+                checkpoint = None
+        
+        if not checkpoint:
+            driver = start_driver()
+            
+            if not login_instagram(driver, INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD):
+                print("Exiting due to login failure")
+                return
+            
+            modal = open_following_modal(driver, TARGET_ACCOUNT)
+            if not modal:
+                print("Exiting: Could not open following modal")
+                return
+            
+            usernames_to_scrape = collect_usernames_from_modal(
+                driver, modal, max_count=MAX_FOLLOWEES_TO_COLLECT
+            )
+            
+            if not usernames_to_scrape:
+                print("No usernames collected")
+                return
+            
+            # Close modal
+            try:
+                driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+                rand_sleep(1, 2)
+            except:
+                pass
+        
+        # Scrape profiles
+        total = len(usernames_to_scrape)
+        print(f"\n{'='*50}")
+        print(f"Starting to scrape {total} profiles...")
+        print(f"{'='*50}\n")
+        
+        for i, username in enumerate(usernames_to_scrape, 1):
+            print(f"[{i}/{total}] Scraping {username}...")
+            
+            try:
+                profile_data = scrape_profile(driver, username)
+                if profile_data:
+                    results.append(profile_data)
+                    processed_usernames.append(username)
+                
+                if i % SAVE_FREQUENCY == 0:
+                    save_results(results, OUTPUT_CSV)
+                    if not checkpoint:
+                        checkpoint = {'usernames': usernames_to_scrape}
+                    save_checkpoint(
+                        checkpoint['usernames'],
+                        processed_usernames
+                    )
+                
+                rand_sleep()
+                
+            except Exception as e:
+                print(f"  ✗ Exception for {username}: {e}")
+                continue
+        
+        save_results(results, OUTPUT_CSV)
+        
+        if os.path.exists(CHECKPOINT_FILE):
+            os.remove(CHECKPOINT_FILE)
+            print("✓ Checkpoint cleaned up")
+        
+        print(f"\n{'='*50}")
+        print(f"COMPLETED! Scraped {len(results)} profiles")
+        print(f"Results saved to: {OUTPUT_CSV}")
+        print(f"{'='*50}")
+        
+    except KeyboardInterrupt:
+        print("\n\nInterrupted by user!")
+        save_results(results, OUTPUT_CSV)
+        if 'usernames_to_scrape' in locals():
+            if not checkpoint:
+                checkpoint = {'usernames': usernames_to_scrape}
+            save_checkpoint(checkpoint['usernames'], processed_usernames)
+        
+    except Exception as e:
+        print(f"\n\nFatal error: {e}")
+        import traceback
+        traceback.print_exc()
+        save_results(results, OUTPUT_CSV)
+        
+    finally:
+        if driver:
+            driver.quit()
+            print("Driver closed")
+
+if __name__ == "__main__":
+    main()
+, name, re.IGNORECASE) and
                     'post' not in name.lower() and
                     'follow' not in name.lower()):
                     data["name"] = name
