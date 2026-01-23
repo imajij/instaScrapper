@@ -35,8 +35,8 @@ from selenium.webdriver.common.action_chains import ActionChains
 import pandas as pd
 
 # --------- CONFIG ----------
-INSTAGRAM_USERNAME = "simpsundays"
-INSTAGRAM_PASSWORD = "Sp@050106"
+INSTAGRAM_USERNAME = "your_username"
+INSTAGRAM_PASSWORD = "your_passwordd"
 TARGET_ACCOUNT = "ashneer.grover"
 OUTPUT_CSV = f"{TARGET_ACCOUNT}_followees_detailed.csv"
 CHECKPOINT_FILE = f"{TARGET_ACCOUNT}_checkpoint.json"
