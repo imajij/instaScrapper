@@ -338,6 +338,8 @@ If the scraper is interrupted (closed by accident, internet cut, etc.), it autom
 | Script stops mid-way | Re-run it — the checkpoint will resume from where it stopped |
 | `ModuleNotFoundError` | Make sure your virtual environment is active and you ran `pip install ...` |
 | Instagram asks for a verification code | Complete the verification manually in the opened Chrome window |
+| **(macOS) Chrome opens but the script can't type into fields / crashes immediately** | macOS Gatekeeper quarantines the auto-downloaded `chromedriver`. Run this once in Terminal, then retry: `xattr -d com.apple.quarantine $(python -c "from webdriver_manager.chrome import ChromeDriverManager; print(ChromeDriverManager().install())")` |
+| **(macOS) "chromedriver cannot be opened because it is from an unidentified developer"** | Same fix as above — the Gatekeeper quarantine attribute needs to be removed from the downloaded driver binary. |
 
 ---
 

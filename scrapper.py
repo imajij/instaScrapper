@@ -21,6 +21,8 @@ import json
 from pathlib import Path
 from typing import List, Dict, Optional
 
+import platform
+
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
@@ -32,6 +34,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.common.action_chains import ActionChains
+from webdriver_manager.chrome import ChromeDriverManager
 import pandas as pd
 
 # --------- CONFIG ----------
@@ -82,38 +85,67 @@ def load_checkpoint() -> Optional[Dict]:
 
 def start_driver(headless=HEADLESS):
     print("Starting driver...")
+    IS_MAC = platform.system() == "Darwin"
+    IS_LINUX = platform.system() == "Linux"
+
     options = webdriver.ChromeOptions()
-    
-    chrome_binary = '/opt/google/chrome/google-chrome'
-    if os.path.exists(chrome_binary):
-        options.binary_location = chrome_binary
-    
+
+    # --- Set Chrome binary path per OS ---
+    if IS_MAC:
+        mac_chrome = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+        if os.path.exists(mac_chrome):
+            options.binary_location = mac_chrome
+    elif IS_LINUX:
+        linux_chrome = '/opt/google/chrome/google-chrome'
+        if os.path.exists(linux_chrome):
+            options.binary_location = linux_chrome
+
     if headless:
         options.add_argument("--headless=new")
-        options.add_argument("--disable-gpu")
-    
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
+        if not IS_MAC:  # --disable-gpu causes rendering issues on macOS
+            options.add_argument("--disable-gpu")
+
+    # Linux / Docker specific flags — skip on macOS where they cause instability
+    if not IS_MAC:
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+
     options.add_argument("--disable-blink-features=AutomationControlled")
     options.add_argument("--disable-extensions")
-    options.add_argument("--disable-infobars")
     options.add_argument("--disable-notifications")
     options.add_argument("--ignore-certificate-errors")
     options.add_argument("--lang=en-US")
     options.add_argument("--window-size=1920,1080")
-    options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-    
+
+    # Use the correct user-agent for the host OS so Instagram renders consistently
+    if IS_MAC:
+        user_agent = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                      "AppleWebKit/537.36 (KHTML, like Gecko) "
+                      "Chrome/120.0.0.0 Safari/537.36")
+    else:
+        user_agent = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                      "AppleWebKit/537.36 (KHTML, like Gecko) "
+                      "Chrome/120.0.0.0 Safari/537.36")
+    options.add_argument(f"user-agent={user_agent}")
+
     options.add_experimental_option("excludeSwitches", ["enable-automation", "enable-logging"])
     options.add_experimental_option('useAutomationExtension', False)
     options.add_experimental_option("prefs", {
         "profile.default_content_setting_values.notifications": 2
     })
-    
-    service = ChromeService()
+
+    # webdriver-manager automatically downloads the chromedriver that matches
+    # the installed Chrome version — this fixes version-mismatch crashes on
+    # macOS where Chrome updates silently and often breaks a pinned chromedriver.
+    try:
+        service = ChromeService(ChromeDriverManager().install())
+    except Exception as e:
+        print(f"Warning: webdriver-manager failed ({e}), falling back to PATH chromedriver")
+        service = ChromeService()
+
     driver = webdriver.Chrome(service=service, options=options)
     driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-    
+
     return driver
 
 def login_instagram(driver, username, password):
