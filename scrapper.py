@@ -83,6 +83,39 @@ def load_checkpoint() -> Optional[Dict]:
             return json.load(f)
     return None
 
+def _find_browser():
+    """
+    Scan known OS-specific paths for Google Chrome and Chromium.
+    Returns (binary_path: str | None, is_chromium: bool).
+    Order matters — Google Chrome is preferred over Chromium where both exist.
+    """
+    OS = platform.system()
+    if OS == "Darwin":
+        candidates = [
+            ("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", False),
+            ("/Applications/Chromium.app/Contents/MacOS/Chromium", True),
+        ]
+    elif OS == "Linux":
+        candidates = [
+            ("/usr/bin/google-chrome", False),
+            ("/usr/bin/google-chrome-stable", False),
+            ("/opt/google/chrome/google-chrome", False),
+            ("/usr/bin/chromium", True),
+            ("/usr/bin/chromium-browser", True),
+            ("/usr/sbin/chromium", True),
+            ("/snap/bin/chromium", True),
+        ]
+    else:  # Windows
+        candidates = [
+            (r"C:\Program Files\Google\Chrome\Application\chrome.exe", False),
+            (r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe", False),
+        ]
+    for path, is_chromium in candidates:
+        if os.path.exists(path):
+            return path, is_chromium
+    return None, False
+
+
 def start_driver(headless=HEADLESS):
     print("Starting driver...")
     IS_MAC = platform.system() == "Darwin"
@@ -90,22 +123,20 @@ def start_driver(headless=HEADLESS):
 
     options = webdriver.ChromeOptions()
 
-    # --- Set Chrome binary path per OS ---
-    if IS_MAC:
-        mac_chrome = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-        if os.path.exists(mac_chrome):
-            options.binary_location = mac_chrome
-    elif IS_LINUX:
-        linux_chrome = '/opt/google/chrome/google-chrome'
-        if os.path.exists(linux_chrome):
-            options.binary_location = linux_chrome
+    # Auto-detect which browser (Chrome vs Chromium) and where it lives
+    browser_binary, is_chromium = _find_browser()
+    if browser_binary:
+        print(f"  Browser: {'Chromium' if is_chromium else 'Google Chrome'} → {browser_binary}")
+        options.binary_location = browser_binary
+    else:
+        print("  Warning: could not locate Chrome/Chromium binary; letting Selenium try PATH")
 
     if headless:
         options.add_argument("--headless=new")
-        if not IS_MAC:  # --disable-gpu causes rendering issues on macOS
+        if not IS_MAC:  # --disable-gpu can cause rendering issues on macOS
             options.add_argument("--disable-gpu")
 
-    # Linux / Docker specific flags — skip on macOS where they cause instability
+    # Linux/Docker-specific flags — skip on macOS where they cause instability
     if not IS_MAC:
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
@@ -117,7 +148,7 @@ def start_driver(headless=HEADLESS):
     options.add_argument("--lang=en-US")
     options.add_argument("--window-size=1920,1080")
 
-    # Use the correct user-agent for the host OS so Instagram renders consistently
+    # Match user-agent to the actual OS so Instagram renders the expected layout
     if IS_MAC:
         user_agent = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
                       "AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -134,11 +165,14 @@ def start_driver(headless=HEADLESS):
         "profile.default_content_setting_values.notifications": 2
     })
 
-    # webdriver-manager automatically downloads the chromedriver that matches
-    # the installed Chrome version — this fixes version-mismatch crashes on
-    # macOS where Chrome updates silently and often breaks a pinned chromedriver.
+    # Use webdriver-manager to fetch the chromedriver that matches the installed
+    # browser version.  When the browser is Chromium we must pass
+    # chrome_type=ChromeType.CHROMIUM, otherwise wdm downloads a Chrome driver
+    # (capped at v114) that is incompatible with newer Chromium builds.
     try:
-        service = ChromeService(ChromeDriverManager().install())
+        from webdriver_manager.core.os_manager import ChromeType
+        chrome_type = ChromeType.CHROMIUM if is_chromium else ChromeType.GOOGLE
+        service = ChromeService(ChromeDriverManager(chrome_type=chrome_type).install())
     except Exception as e:
         print(f"Warning: webdriver-manager failed ({e}), falling back to PATH chromedriver")
         service = ChromeService()
